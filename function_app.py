@@ -55,6 +55,8 @@ def get_spotify_token():
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
     
     logging.info('Connecting...')
+    logging.info(f'clientid {client_id}')
+    logging.info(f'client_secret {client_secret}')
 
     auth_url = "https://accounts.spotify.com/api/token"
     headers = {
@@ -106,6 +108,24 @@ def search_spotify_song(song_name, token):
     }
     
     response = requests.get(search_url, headers=headers, params=params)
+
+    if response.status_code == 200:
+        logging.info(f"Request succeeded with status code {response.status_code}")
+        # Parse the JSON response
+        response_data = response.json()
+
+        # Check if the response is a dictionary or list
+        if isinstance(response_data, dict):
+            # Iterate over dictionary items (key-value pairs)
+            for key, value in response_data.items():
+                logging.info(f"{key}: {value}")
+        elif isinstance(response_data, list):
+            # Iterate over list items
+            for item in response_data:
+                logging.info(item)
+    else:
+        logging.info(f"Request failed with status code {response.status_code}")
+        logging.info(f"Request failed with reason {response.reason}")
     
     if response.status_code == 200:
         track_info = response.json()
