@@ -2,14 +2,14 @@ import azure.functions as func
 import logging
 import requests
 import os
+import json
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
-
-@app.route(route="spotifyintegration")
 
 #####################
 # main spotify integration.
 #####################
+@app.route(route="spotifyintegration")
 def spotifyintegration(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
@@ -133,3 +133,48 @@ def search_spotify_song(song_name, token):
         if tracks:
             return tracks[0]  # Return the first matching track
     return None
+
+# Function to search for a song
+def search_song(query):
+    access_token = get_spotify_token()
+    if not access_token:
+        return None, "Could not authenticate with Spotify API"
+
+    url = f"https://api.spotify.com/v1/search?q={query}&type=track"
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        return response.json(), None
+    else:
+        logging.error("Error searching for song: %s", response.text)
+        return None, response.text
+
+@app.route(route="spotifyintegrationjson")
+def spotifyintegrationjson(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Spotify song search request processed.')
+
+    query = req.params.get('query')
+    if not query:
+        return func.HttpResponse("Please provide a query string.", status_code=400)
+
+    search_results, error = search_song(query)
+
+    if error:
+        return func.HttpResponse(f"Error: {error}", status_code=500)
+
+    # Parse and format the results
+    songs = []
+    for item in search_results.get('tracks', {}).get('items', []):
+        song_data = {
+            'song_name': item['name'],
+            'artist': item['artists'][0]['name'] if item['artists'] else 'Unknown',
+            'length': item['duration_ms'] // 1000,  # Convert milliseconds to seconds
+            'release_year': item['album']['release_date'][:4]  # Extract the year
+        }
+        songs.append(song_data)
+        
+    return func.HttpResponse(json.dumps(songs), status_code=200, mimetype="application/json")
